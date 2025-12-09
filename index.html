@@ -2,446 +2,439 @@
 <html lang="fr">
 
 <head>
-  <meta charset="UTF-8">
-  <title>SART</title>
-  <style>
-    body {
-      background: black;
-      color: white;
-      font-family: Arial, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
+    <meta charset="UTF-8">
+    <title>SART</title>
+    <style>
+        body {
+            background: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            touch-action: none;
+            /* évite le scroll/zoom par défaut sur tablette */
+        }
 
-    #screen {
-      position: relative;
-      text-align: center;
-      max-width: 800px;
-      max-height: 600px;
-    }
+        #screen {
+            position: relative;
+            text-align: center;
+            max-width: 800px;
+            max-height: 600px;
+        }
 
-    #bitmap {
-      max-width: 800px;
-      max-height: 600px;
-    }
+        #bitmap {
+            max-width: 800px;
+            max-height: 600px;
+        }
 
-    #digit {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 80px;
-    }
+        #digit {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+        }
 
-    #text {
-      position: absolute;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 22px;
-      white-space: pre-line;
-    }
-  </style>
+        #text {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 22px;
+            white-space: pre-line;
+        }
+    </style>
 </head>
 
 <body>
-  <div id="screen">
-    <img id="bitmap" src="" alt="">
-    <div id="digit"></div>
-    <div id="text"></div>
-  </div>
+    <div id="screen">
+        <img id="bitmap" src="" alt="">
+        <div id="digit"></div>
+        <div id="text"></div>
+    </div>
 
-  <script>
-    // ------------------ PARAMÈTRES ------------------
-    const NOGO_DIGIT = 3;
-    const DIGIT_DURATION = 250;    // ms
-    const TOTAL_TRIAL_TIME = 1150; // ms (digit + masque)
+    <script>
+        // ------------------ PARAMÈTRES ------------------
+        const NOGO_DIGIT = 3;
+        const DIGIT_DURATION = 250;    // ms
+        const TOTAL_TRIAL_TIME = 1150; // ms (digit + masque)
 
-    const bitmapEl = document.getElementById("bitmap");
-    const digitEl = document.getElementById("digit");
-    const textEl = document.getElementById("text");
+        const bitmapEl = document.getElementById("bitmap");
+        const digitEl = document.getElementById("digit");
+        const textEl = document.getElementById("text");
 
-    // tailles de stimulus (1 à 5, du plus petit au plus grand)
-    const SIZE_MAP = {
-      1: 40,
-      2: 60,
-      3: 80,
-      4: 100,
-      5: 120
-    };
+        // tailles de stimulus (1 à 5, du plus petit au plus grand)
+        const SIZE_MAP = {
+            1: 40,
+            2: 60,
+            3: 80,
+            4: 100,
+            5: 120
+        };
 
-    // états :
-    // titlescreen, instructions1, instructions2, instructions_real,
-    // countdown, trial, error, block_feedback,
-    // welldone_training, welldone_experiment, end
-    let state = "titlescreen";
+        // états :
+        // titlescreen, instructions1, instructions2, instructions_real,
+        // countdown, trial, error, block_feedback,
+        // welldone_training, welldone_experiment, end
+        let state = "titlescreen";
 
-    let blockNumber = 1;
-    let digits = [];
-    let currentDigit = null;
-    let currentStimulusSize = 3; // 1–5
-    let trialIndex = 0;
-    let trialStartTime = null;
-    let responded = false;
-    let rt = null;
+        let blockNumber = 1;
+        let digits = [];
+        let currentDigit = null;
+        let currentStimulusSize = 3; // 1–5
+        let trialIndex = 0;
+        let trialStartTime = null;
+        let responded = false;
+        let rt = null;
 
-    const allResults = [];
+        const allResults = [];
 
-    // ------------------ UTILS ------------------
-    function shuffle(arr) {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
-    }
-
-    function makeDigitSequence(repetitions) {
-      const base = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-      let seq = [];
-      for (let i = 0; i < repetitions; i++) seq = seq.concat(base);
-      return shuffle(seq);
-    }
-
-    function showBitmap(name) {
-      bitmapEl.src = name ? name : "";
-    }
-
-    function showDigit(d) {
-      digitEl.textContent = (d !== null && d !== undefined) ? String(d) : "";
-    }
-
-    function showText(t) {
-      textEl.textContent = t || "";
-    }
-
-    function clearScreen() {
-      showBitmap("");
-      showDigit("");
-      showText("");
-    }
-
-    // ------------------ ÉCRANS FIXES ------------------
-    function showTitleScreen() {
-      state = "titlescreen";
-      showBitmap("titlescreen.png");
-      showDigit("");
-      showText("");
-    }
-
-    function showInstruction1() {
-      state = "instructions1";
-      showBitmap("instruction1.png");
-      showDigit("");
-      showText("");
-    }
-
-    function showInstruction2() {
-      state = "instructions2";
-      showBitmap("instruction2.png");
-      showDigit("");
-      showText("");
-    }
-
-    function showInstructionReal() {
-      state = "instructions_real";
-      showBitmap("instruction_real.png");
-      showDigit("");
-      showText("");
-    }
-
-    function showWelldoneTraining() {
-      state = "welldone_training";
-      showBitmap("welldone_training.png");
-      showDigit("");
-      showText("");
-    }
-
-    function showWelldoneExperiment() {
-      state = "welldone_experiment";
-      showBitmap("welldone_experiment.png");
-      showDigit("");
-      showText("");
-    }
-
-    // ------------------ COMPTE À REBOURS ------------------
-    function startCountdown(nextBlockCallback) {
-      state = "countdown";
-      let sequence = [
-        { img: "ready3.png", delay: 1000 },
-        { img: "ready2.png", delay: 1000 },
-        { img: "ready1.png", delay: 1000 }
-      ];
-
-      let i = 0;
-      function step() {
-        if (i >= sequence.length) {
-          clearScreen();
-          setTimeout(nextBlockCallback, 500);
-          return;
-        }
-        showBitmap(sequence[i].img);
-        showDigit("");
-        showText("");
-        setTimeout(() => {
-          i++;
-          step();
-        }, sequence[i].delay);
-      }
-      step();
-    }
-
-    // ------------------ BLOC SART ------------------
-    function startBlock(blockNum, repetitions) {
-      blockNumber = blockNum;
-      digits = makeDigitSequence(repetitions);
-      trialIndex = 0;
-      nextTrial();
-    }
-
-    function nextTrial() {
-      if (digits.length === 0) {
-        // fin du bloc
-        showBlockFeedback(blockNumber);
-        return;
-      }
-
-      state = "trial";
-      responded = false;
-      rt = null;
-      currentDigit = digits.shift();
-      trialIndex++;
-
-      // taille de stimulus aléatoire 1–5
-      currentStimulusSize = Math.floor(Math.random() * 5) + 1;
-      digitEl.style.fontSize = SIZE_MAP[currentStimulusSize] + "px";
-
-      // phase chiffre
-      showBitmap("");
-      showDigit(currentDigit);
-      showText("");
-
-      trialStartTime = performance.now();
-
-      setTimeout(() => {
-        if (state !== "trial") return;
-
-        // Vert uniquement si réponse ET digit != 3 (réponse correcte)
-        if (responded && currentDigit !== NOGO_DIGIT) {
-          showBitmap("mask_green.png");
-        } else {
-          showBitmap("mask.png");
+        // ------------------ UTILS ------------------
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
         }
 
-        showDigit("");
-      }, DIGIT_DURATION);
-
-
-      setTimeout(() => {
-        if (state === "trial") {
-          endTrial();
+        function makeDigitSequence(repetitions) {
+            const base = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            let seq = [];
+            for (let i = 0; i < repetitions; i++) seq = seq.concat(base);
+            return shuffle(seq);
         }
-      }, TOTAL_TRIAL_TIME);
-    }
 
-    function endTrial() {
-      const trialType = (currentDigit === NOGO_DIGIT) ? 0 : 1; // 0=no-go,1=go
-      let mystatus = 1;   // 1 = correct, 0 = erreur
-      let errorType = null; // "commission" ou "omission"
-
-      if (currentDigit === NOGO_DIGIT && responded) {
-        mystatus = 0;
-        errorType = "commission";
-      } else if (currentDigit !== NOGO_DIGIT && !responded) {
-        mystatus = 0;
-        errorType = "omission";
-      }
-
-      const blockname = (blockNumber === 1) ? "training" : "realtest";
-
-      allResults.push({
-        blockname: blockname,          // col 1
-        blocknumber: blockNumber,      // col 2
-        trialType: trialType,          // col 3 (go_nogo)
-        digit: currentDigit,           // col 4
-        stimulusSize: currentStimulusSize, // col 5 (1–5)
-        responseOutcome: mystatus,     // col 6 (0 erreur, 1 correct)
-        rt_ms: rt                      // col 7
-      });
-
-      if (errorType) {
-        state = "error";
-        if (errorType === "commission") {
-          showBitmap("mistake_wrong_press.png");
-        } else {
-          showBitmap("mistake_missed.png");
+        function showBitmap(name) {
+            bitmapEl.src = name ? name : "";
         }
-        showDigit("");
-        showText("");
 
-        setTimeout(() => {
-          clearScreen();
-          setTimeout(() => {
-            nextTrial();
-          }, 500);
-        }, 3000);
-      } else {
-        clearScreen();
-        setTimeout(() => {
-          nextTrial();
-        }, 200);
-      }
-    }
+        function showDigit(d) {
+            digitEl.textContent = (d !== null && d !== undefined) ? String(d) : "";
+        }
 
-    // ------------------ FEEDBACK DE BLOC ------------------
-    function showBlockFeedback(blockNum) {
-      state = "block_feedback";
+        function showText(t) {
+            textEl.textContent = t || "";
+        }
 
-      const blockRes = allResults.filter(r => r.blocknumber === blockNum);
-      const totalGo = blockRes.filter(r => r.trialType === 1).length;
-      const goMistakes = blockRes.filter(r => r.trialType === 1 && r.responseOutcome === 0).length;
-      const totalNoGo = blockRes.filter(r => r.trialType === 0).length;
-      const noGoMistakes = blockRes.filter(r => r.trialType === 0 && r.responseOutcome === 0).length;
-
-      const goMistakesP = totalGo > 0 ? (goMistakes / totalGo * 100).toFixed(1) : "0.0";
-      const noGoMistakesP = totalNoGo > 0 ? (noGoMistakes / totalNoGo * 100).toFixed(1) : "0.0";
-
-      let title = (blockNum === 1) ? "Résultats du bloc d'entraînement" : "Résultats du bloc test réel";
-      let txt =
-        title + "\n\n" +
-        "Nombre Go essais: " + totalGo + "\n" +
-        "Nombre Go erreurs: " + goMistakes + "\n" +
-        "Go erreurs: " + goMistakesP + "%\n\n" +
-        "Nombre NoGo essais: " + totalNoGo + "\n" +
-        "Nombre NoGo erreurs: " + noGoMistakes + "\n" +
-        "NoGo erreurs: " + noGoMistakesP + "%\n\n" +
-        "Appuyez sur la BARRE D'ESPACE pour continuer";
-
-      clearScreen();
-      showText(txt);
-    }
-
-    // ------------------ EXPORT CSV ------------------
-    function downloadCsv() {
-      if (!allResults.length) return;
-
-      const header = [
-        "nom du bloc",      // 1
-        "n° du bloc",    // 2
-        "go_nogo",        // 3
-        "numéro",          // 4
-        "taille du stimulus",   // 5
-        "responseOutcome",// 6
-        "tpsreac_ms"           // 7
-      ];
-
-      const rows = [header.join(",")];
-
-      allResults.forEach(r => {
-        const row = [
-          r.blockname,
-          r.blocknumber,
-          r.trialType,
-          r.digit,
-          r.stimulusSize,
-          r.responseOutcome,
-          (r.rt_ms != null ? r.rt_ms : "")
-        ];
-        rows.push(row.join(","));
-      });
-
-      const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      a.href = url;
-      a.download = "sart_results_" + stamp + ".csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    function endExperiment() {
-      state = "end";
-      clearScreen();
-      showText("Fin de l'expérience.\n\nMerci d'avoir participé!");
-      console.log("All results:", allResults);
-      downloadCsv(); // déclenche le téléchargement Excel/CSV
-    }
-
-    // ------------------ GESTION DES TOUCHES ------------------
-    document.addEventListener("keydown", (e) => {
-      if (e.code !== "Space") return;
-      e.preventDefault();
-
-      if (state === "titlescreen") {
-        showInstruction1();
-      } else if (state === "instructions1") {
-        showInstruction2();
-      } else if (state === "instructions2") {
-        startCountdown(() => startBlock(1, 2)); // training : 18 essais
-      } else if (state === "welldone_training") {
-        showInstructionReal();
-      } else if (state === "instructions_real") {
-        startCountdown(() => startBlock(2, 25)); // real : 225 essais
-      } else if (state === "trial") {
-        if (!responded) {
-          responded = true;
-          rt = Math.round(performance.now() - trialStartTime);
-
-          // Vert uniquement si c'était un GO (digit != 3)
-          if (currentDigit !== NOGO_DIGIT) {
-            showBitmap("mask_green.png");
+        function clearScreen() {
+            showBitmap("");
             showDigit("");
-          }
-          // si digit == 3 (no-go), on ne change rien ici :
-          // le masque restera blanc et ce sera compté comme erreur de commission
+            showText("");
         }
 
-      } else if (state === "block_feedback") {
-        if (blockNumber === 1) {
-          showWelldoneTraining();
-        } else {
-          showWelldoneExperiment();
+        // ------------------ ÉCRANS FIXES ------------------
+        function showTitleScreen() {
+            state = "titlescreen";
+            showBitmap("titlescreen.png");
+            showDigit("");
+            showText("");
         }
-      } else if (state === "welldone_experiment") {
-        endExperiment();
-      }
-    });
 
-    function advanceFromTap() {
-      if (state === "titlescreen") {
-        showInstruction1();
-      } else if (state === "instructions1") {
-        showInstruction2();
-      } else if (state === "instructions2") {
-        startCountdown(() => startBlock(1, 2)); // training
-      } else if (state === "welldone_training") {
-        showInstructionReal();
-      } else if (state === "instructions_real") {
-        startCountdown(() => startBlock(2, 25)); // real
-      } else if (state === "welldone_experiment") {
-        endExperiment();
-      }
-    }
+        function showInstruction1() {
+            state = "instructions1";
+            showBitmap("instruction1.png");
+            showDigit("");
+            showText("");
+        }
 
-    // Tap ou touch sur l'écran = équivalent à ESPACE
-    document.addEventListener("click", () => {
-      advanceFromTap();
-    });
+        function showInstruction2() {
+            state = "instructions2";
+            showBitmap("instruction2.png");
+            showDigit("");
+            showText("");
+        }
 
-    document.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      advanceFromTap();
-    }, { passive: false });
+        function showInstructionReal() {
+            state = "instructions_real";
+            showBitmap("instruction_real.png");
+            showDigit("");
+            showText("");
+        }
 
-    // ------------------ DÉMARRAGE ------------------
-    showTitleScreen();
-  </script>
+        function showWelldoneTraining() {
+            state = "welldone_training";
+            showBitmap("welldone_training.png");
+            showDigit("");
+            showText("");
+        }
+
+        function showWelldoneExperiment() {
+            state = "welldone_experiment";
+            showBitmap("welldone_experiment.png");
+            showDigit("");
+            showText("");
+        }
+
+        // ------------------ COMPTE À REBOURS ------------------
+        function startCountdown(nextBlockCallback) {
+            state = "countdown";
+            let sequence = [
+                { img: "ready3.png", delay: 1000 },
+                { img: "ready2.png", delay: 1000 },
+                { img: "ready1.png", delay: 1000 }
+            ];
+
+            let i = 0;
+            function step() {
+                if (i >= sequence.length) {
+                    clearScreen();
+                    setTimeout(nextBlockCallback, 500);
+                    return;
+                }
+                showBitmap(sequence[i].img);
+                showDigit("");
+                showText("");
+                setTimeout(() => {
+                    i++;
+                    step();
+                }, sequence[i].delay);
+            }
+            step();
+        }
+
+        // ------------------ BLOC SART ------------------
+        function startBlock(blockNum, repetitions) {
+            blockNumber = blockNum;
+            digits = makeDigitSequence(repetitions);
+            trialIndex = 0;
+            nextTrial();
+        }
+
+        function nextTrial() {
+            if (digits.length === 0) {
+                // fin du bloc
+                showBlockFeedback(blockNumber);
+                return;
+            }
+
+            state = "trial";
+            responded = false;
+            rt = null;
+            currentDigit = digits.shift();
+            trialIndex++;
+
+            // taille de stimulus aléatoire 1–5
+            currentStimulusSize = Math.floor(Math.random() * 5) + 1;
+            digitEl.style.fontSize = SIZE_MAP[currentStimulusSize] + "px";
+
+            // phase chiffre
+            showBitmap("");
+            showDigit(currentDigit);
+            showText("");
+
+            trialStartTime = performance.now();
+
+            setTimeout(() => {
+                if (state !== "trial") return;
+
+                // Vert uniquement si réponse ET digit != 3 (réponse correcte)
+                if (responded && currentDigit !== NOGO_DIGIT) {
+                    showBitmap("mask_green.png");
+                } else {
+                    showBitmap("mask.png");
+                }
+
+                showDigit("");
+            }, DIGIT_DURATION);
+
+
+            setTimeout(() => {
+                if (state === "trial") {
+                    endTrial();
+                }
+            }, TOTAL_TRIAL_TIME);
+        }
+
+        function endTrial() {
+            const trialType = (currentDigit === NOGO_DIGIT) ? 0 : 1; // 0=no-go,1=go
+            let mystatus = 1;   // 1 = correct, 0 = erreur
+            let errorType = null; // "commission" ou "omission"
+
+            if (currentDigit === NOGO_DIGIT && responded) {
+                mystatus = 0;
+                errorType = "commission";
+            } else if (currentDigit !== NOGO_DIGIT && !responded) {
+                mystatus = 0;
+                errorType = "omission";
+            }
+
+            const blockname = (blockNumber === 1) ? "training" : "realtest";
+
+            allResults.push({
+                blockname: blockname,          // col 1
+                blocknumber: blockNumber,      // col 2
+                trialType: trialType,          // col 3 (go_nogo)
+                digit: currentDigit,           // col 4
+                stimulusSize: currentStimulusSize, // col 5 (1–5)
+                responseOutcome: mystatus,     // col 6 (0 erreur, 1 correct)
+                rt_ms: rt                      // col 7
+            });
+
+            if (errorType) {
+                state = "error";
+                if (errorType === "commission") {
+                    showBitmap("mistake_wrong_press.png");
+                } else {
+                    showBitmap("mistake_missed.png");
+                }
+                showDigit("");
+                showText("");
+
+                setTimeout(() => {
+                    clearScreen();
+                    setTimeout(() => {
+                        nextTrial();
+                    }, 500);
+                }, 3000);
+            } else {
+                clearScreen();
+                setTimeout(() => {
+                    nextTrial();
+                }, 200);
+            }
+        }
+
+        // ------------------ FEEDBACK DE BLOC ------------------
+        function showBlockFeedback(blockNum) {
+            state = "block_feedback";
+
+            const blockRes = allResults.filter(r => r.blocknumber === blockNum);
+            const totalGo = blockRes.filter(r => r.trialType === 1).length;
+            const goMistakes = blockRes.filter(r => r.trialType === 1 && r.responseOutcome === 0).length;
+            const totalNoGo = blockRes.filter(r => r.trialType === 0).length;
+            const noGoMistakes = blockRes.filter(r => r.trialType === 0 && r.responseOutcome === 0).length;
+
+            const goMistakesP = totalGo > 0 ? (goMistakes / totalGo * 100).toFixed(1) : "0.0";
+            const noGoMistakesP = totalNoGo > 0 ? (noGoMistakes / totalNoGo * 100).toFixed(1) : "0.0";
+
+            let title = (blockNum === 1) ? "Résultats du bloc d'entraînement" : "Résultats du bloc test réel";
+            let txt =
+                title + "\n\n" +
+                "Nombre Go essais: " + totalGo + "\n" +
+                "Nombre Go erreurs: " + goMistakes + "\n" +
+                "Go erreurs: " + goMistakesP + "%\n\n" +
+                "Nombre NoGo essais: " + totalNoGo + "\n" +
+                "Nombre NoGo erreurs: " + noGoMistakes + "\n" +
+                "NoGo erreurs: " + noGoMistakesP + "%\n\n" +
+                "Touchez l'écran pour continuer";
+
+            clearScreen();
+            showText(txt);
+        }
+
+        // ------------------ EXPORT CSV ------------------
+        function downloadCsv() {
+            if (!allResults.length) return;
+
+            const header = [
+                "nom du bloc",      // 1
+                "n° du bloc",       // 2
+                "go_nogo",          // 3
+                "numéro",           // 4
+                "taille du stimulus", // 5
+                "responseOutcome",  // 6
+                "tpsreac_ms"        // 7
+            ];
+
+            const rows = [header.join(",")];
+
+            allResults.forEach(r => {
+                const row = [
+                    r.blockname,
+                    r.blocknumber,
+                    r.trialType,
+                    r.digit,
+                    r.stimulusSize,
+                    r.responseOutcome,
+                    (r.rt_ms != null ? r.rt_ms : "")
+                ];
+                rows.push(row.join(","));
+            });
+
+            const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+            a.href = url;
+            a.download = "sart_results_" + stamp + ".csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function endExperiment() {
+            state = "end";
+            clearScreen();
+            showText("Fin de l'expérience.\n\nMerci d'avoir participé!");
+            console.log("All results:", allResults);
+            downloadCsv(); // déclenche le téléchargement Excel/CSV
+        }
+
+        // ------------------ ACTION UNIQUE (SPACE OU TOUCH) ------------------
+        function handleAction() {
+            if (state === "titlescreen") {
+                showInstruction1();
+
+            } else if (state === "instructions1") {
+                showInstruction2();
+
+            } else if (state === "instructions2") {
+                startCountdown(() => startBlock(1, 2)); // training : 18 essais
+
+            } else if (state === "welldone_training") {
+                showInstructionReal();
+
+            } else if (state === "instructions_real") {
+                startCountdown(() => startBlock(2, 25)); // real : 225 essais
+
+            } else if (state === "trial") {
+                if (!responded) {
+                    responded = true;
+                    rt = Math.round(performance.now() - trialStartTime);
+
+                    // Vert uniquement si c'était un GO (digit != 3)
+                    if (currentDigit !== NOGO_DIGIT) {
+                        showBitmap("mask_green.png");
+                        showDigit("");
+                    }
+                    // si digit == 3 (no-go), on ne change rien ici :
+                    // le masque restera blanc et ce sera compté comme erreur de commission
+                }
+
+            } else if (state === "block_feedback") {
+                if (blockNumber === 1) {
+                    showWelldoneTraining();
+                } else {
+                    showWelldoneExperiment();
+                }
+
+            } else if (state === "welldone_experiment") {
+                endExperiment();
+            }
+        }
+
+        // ------------------ GESTION DES ENTRÉES ------------------
+        // 1) clavier (SPACE) – utile pour tester sur PC
+        document.addEventListener("keydown", (e) => {
+            if (e.code !== "Space") return;
+            e.preventDefault();
+            handleAction();
+        });
+
+        // 2) toucher / clic n'importe où sur la page (tablette, écran tactile)
+        document.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            handleAction();
+        });
+
+        // ------------------ DÉMARRAGE ------------------
+        showTitleScreen();
+    </script>
 
 </body>
 
