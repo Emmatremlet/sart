@@ -413,6 +413,32 @@
       }
     });
 
+    function advanceFromTap() {
+      if (state === "titlescreen") {
+        showInstruction1();
+      } else if (state === "instructions1") {
+        showInstruction2();
+      } else if (state === "instructions2") {
+        startCountdown(() => startBlock(1, 2)); // training
+      } else if (state === "welldone_training") {
+        showInstructionReal();
+      } else if (state === "instructions_real") {
+        startCountdown(() => startBlock(2, 25)); // real
+      } else if (state === "welldone_experiment") {
+        endExperiment();
+      }
+    }
+
+    // Tap ou touch sur l'écran = équivalent à ESPACE
+    document.addEventListener("click", () => {
+      advanceFromTap();
+    });
+
+    document.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      advanceFromTap();
+    }, { passive: false });
+
     // ------------------ DÉMARRAGE ------------------
     showTitleScreen();
   </script>
