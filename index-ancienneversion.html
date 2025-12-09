@@ -419,36 +419,18 @@
         }
 
         // ------------------ GESTION DES ENTRÉES ------------------
-        // ------------------ GESTION DES ENTRÉES ------------------
-
-        // petit anti double-clic (touchstart + click)
-        let lastActionTime = 0;
-        function triggerAction() {
-            const now = Date.now();
-            if (now - lastActionTime < 200) return; // ignore si trop proche
-            lastActionTime = now;
-            handleAction();
-        }
-
-        // 1) clavier (SPACE) – pour tester sur PC
+        // 1) clavier (SPACE) – utile pour tester sur PC
         document.addEventListener("keydown", (e) => {
             if (e.code !== "Space") return;
             e.preventDefault();
-            triggerAction();
+            handleAction();
         });
 
-        // 2) toucher (iPad, Android, etc.)
-        document.addEventListener("touchstart", (e) => {
-            e.preventDefault(); // évite zoom/scroll
-            triggerAction();
-        }, { passive: false });
-
-        // 3) clic souris (au cas où) – utile sur PC / certains navigateurs
-        document.addEventListener("click", (e) => {
+        // 2) toucher / clic n'importe où sur la page (tablette, écran tactile)
+        document.addEventListener("pointerdown", (e) => {
             e.preventDefault();
-            triggerAction();
+            handleAction();
         });
-
 
         // ------------------ DÉMARRAGE ------------------
         showTitleScreen();
